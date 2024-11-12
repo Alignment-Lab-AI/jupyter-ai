@@ -25,7 +25,6 @@ import { ExistingApiKeys } from './settings/existing-api-keys';
 import { IRenderMimeRegistry } from '@jupyterlab/rendermime';
 import { minifyUpdate } from './settings/minify';
 import { useStackingAlert } from './mui-extras/stacking-alert';
-import { RendermimeMarkdown } from './rendermime-markdown';
 import { IJaiCompletionProvider } from '../tokens';
 
 type ChatSettingsProps = {
@@ -48,10 +47,6 @@ export function ChatSettings(props: ChatSettingsProps): JSX.Element {
   const [lmModelName, setLmModelName] = useState('');
   const [clmModelName, setClmModelName] = useState('');
   const [emModelName, setEmModelName] = useState('');
-
-  // Help text states
-  const [chatHelpMarkdown, setChatHelpMarkdown] = useState<string | null>(null);
-  const [completionHelpMarkdown, setCompletionHelpMarkdown] = useState<string | null>(null);
 
   // Global IDs
   const lmGlobalId = useMemo(() => 
@@ -83,23 +78,31 @@ export function ChatSettings(props: ChatSettingsProps): JSX.Element {
   useEffect(() => {
     if (server.state !== ServerInfoState.Ready) return;
 
-    const [lmPid, lmModel] = server.chat.lmGlobalId?.split(':') ?? [null, ''];
-    const [clmPid, clmModel] = server.completions.lmGlobalId?.split(':') ?? [null, ''];
-    const [emPid, emModel] = server.config.embeddings_provider_id?.split(':') ?? [null, ''];
+    // Split provider IDs and model names from global IDs
+    if (server.chat.lmProvider?.id) {
+      setSelectedLmProviderId(server.chat.lmProvider.id);
+      setLmModelName(server.chat.lmLocalId || '');
+    }
 
-    setSelectedLmProviderId(lmPid);
-    setSelectedClmProviderId(clmPid);
-    setSelectedEmProviderId(emPid);
+    if (server.completions.lmProvider?.id) {
+      setSelectedClmProviderId(server.completions.lmProvider.id);
+      setClmModelName(server.completions.lmLocalId || '');
+    }
 
-    setLmModelName(lmModel);
-    setClmModelName(clmModel);
-    setEmModelName(emModel);
+    if (server.config.embeddings_provider_id) {
+      const [providerId, modelName] = server.config.embeddings_provider_id.split(':');
+      setSelectedEmProviderId(providerId);
+      setEmModelName(modelName || '');
+    }
 
     setSendWse(server.config.send_with_shift_enter);
     
-    // Only set fields if they exist
-    if (server.config.fields?.[server.chat.lmGlobalId ?? '']) {
-      setFields(server.config.fields[server.chat.lmGlobalId ?? '']);
+    // Initialize fields if they exist
+    if (server.config.fields && server.chat.lmProvider?.id) {
+      const providerFields = server.config.fields[`${server.chat.lmProvider.id}:${server.chat.lmLocalId}`];
+      if (providerFields) {
+        setFields(providerFields);
+      }
     }
   }, [server]);
 
