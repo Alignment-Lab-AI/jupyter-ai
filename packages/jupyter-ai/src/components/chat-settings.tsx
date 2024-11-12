@@ -71,12 +71,16 @@ export function ChatSettings(props: ChatSettingsProps): JSX.Element {
     [selectedEmProviderId, emModelName]
   );
 
+  // Using ref to store API keys to avoid TypeScript warning
+  const apiKeysRef = React.useRef<Record<string, string>>({});
+  const updateApiKeys = (newApiKeys: Record<string, string>) => {
+    apiKeysRef.current = newApiKeys;
+  };
+
   // Other states
-  const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
   const [sendWse, setSendWse] = useState(false);
   const [fields, setFields] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
-
   const [isCompleterEnabled, setIsCompleterEnabled] = useState(
     props.completionProvider && props.completionProvider.isEnabled()
   );
@@ -120,7 +124,6 @@ export function ChatSettings(props: ChatSettingsProps): JSX.Element {
     };
 
     props.completionProvider?.settingsChanged.connect(refreshCompleterState);
-    
     return () => {
       props.completionProvider?.settingsChanged.disconnect(refreshCompleterState);
     };
@@ -130,7 +133,7 @@ export function ChatSettings(props: ChatSettingsProps): JSX.Element {
     if (server.state !== ServerInfoState.Ready) return;
 
     const validApiKeys: Record<string, string> = {};
-    Object.entries(apiKeys).forEach(([key, value]) => {
+    Object.entries(apiKeysRef.current).forEach(([key, value]) => {
       if (value.trim()) {
         validApiKeys[key] = value;
       }
@@ -328,6 +331,7 @@ export function ChatSettings(props: ChatSettingsProps): JSX.Element {
         alert={apiKeysAlert}
         apiKeys={server.config.api_keys}
         onSuccess={server.refetchApiKeys}
+        onChange={updateApiKeys}
       />
 
       <h2 className="jp-ai-ChatSettings-header">Input</h2>
