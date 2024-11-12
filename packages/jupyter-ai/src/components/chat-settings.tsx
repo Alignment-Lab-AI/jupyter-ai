@@ -27,11 +27,18 @@ import { minifyUpdate } from './settings/minify';
 import { useStackingAlert } from './mui-extras/stacking-alert';
 import { IJaiCompletionProvider } from '../tokens';
 
-type ChatSettingsProps = {
+interface ChatSettingsProps {
   rmRegistry: IRenderMimeRegistry;
   completionProvider: IJaiCompletionProvider | null;
   openInlineCompleterSettings: () => void;
-};
+}
+
+interface CompleterSettingsButtonProps {
+  provider: IJaiCompletionProvider | null;
+  isCompleterEnabled: boolean | null;
+  hasSelection: boolean;
+  openSettings: () => void;
+}
 
 export function ChatSettings(props: ChatSettingsProps): JSX.Element {
   const server = useServerInfo();
@@ -48,7 +55,7 @@ export function ChatSettings(props: ChatSettingsProps): JSX.Element {
   const [clmModelName, setClmModelName] = useState('');
   const [emModelName, setEmModelName] = useState('');
 
-  // Global IDs
+  // Global IDs using memoization
   const lmGlobalId = useMemo(() => 
     selectedLmProviderId && lmModelName ? `${selectedLmProviderId}:${lmModelName}` : null,
     [selectedLmProviderId, lmModelName]
@@ -78,7 +85,6 @@ export function ChatSettings(props: ChatSettingsProps): JSX.Element {
   useEffect(() => {
     if (server.state !== ServerInfoState.Ready) return;
 
-    // Split provider IDs and model names from global IDs
     if (server.chat.lmProvider?.id) {
       setSelectedLmProviderId(server.chat.lmProvider.id);
       setLmModelName(server.chat.lmLocalId || '');
@@ -97,7 +103,6 @@ export function ChatSettings(props: ChatSettingsProps): JSX.Element {
 
     setSendWse(server.config.send_with_shift_enter);
     
-    // Initialize fields if they exist
     if (server.config.fields && server.chat.lmProvider?.id) {
       const providerFields = server.config.fields[`${server.chat.lmProvider.id}:${server.chat.lmLocalId}`];
       if (providerFields) {
@@ -113,7 +118,9 @@ export function ChatSettings(props: ChatSettingsProps): JSX.Element {
         props.completionProvider && props.completionProvider.isEnabled()
       );
     };
+
     props.completionProvider?.settingsChanged.connect(refreshCompleterState);
+    
     return () => {
       props.completionProvider?.settingsChanged.disconnect(refreshCompleterState);
     };
@@ -122,7 +129,6 @@ export function ChatSettings(props: ChatSettingsProps): JSX.Element {
   const handleSave = async () => {
     if (server.state !== ServerInfoState.Ready) return;
 
-    // Only include API keys that have values
     const validApiKeys: Record<string, string> = {};
     Object.entries(apiKeys).forEach(([key, value]) => {
       if (value.trim()) {
@@ -135,7 +141,6 @@ export function ChatSettings(props: ChatSettingsProps): JSX.Element {
       embeddings_provider_id: emGlobalId,
       completions_model_provider_id: clmGlobalId,
       send_with_shift_enter: sendWse,
-      // Only include fields and API keys if they exist
       ...(Object.keys(fields).length > 0 && {
         fields: {
           ...(lmGlobalId && { [lmGlobalId]: fields }),
@@ -363,12 +368,7 @@ export function ChatSettings(props: ChatSettingsProps): JSX.Element {
   );
 }
 
-function CompleterSettingsButton(props: {
-  provider: IJaiCompletionProvider | null;
-  isCompleterEnabled: boolean | null;
-  hasSelection: boolean;
-  openSettings: () => void;
-}): JSX.Element {
+function CompleterSettingsButton(props: CompleterSettingsButtonProps): JSX.Element {
   if (props.hasSelection && !props.isCompleterEnabled) {
     return (
       <Tooltip
